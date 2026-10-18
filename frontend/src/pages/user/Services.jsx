@@ -54,10 +54,13 @@ export default function Services() {
       <Alert message={error} onClose={() => setError('')} />
 
       {active && (
-        <div className="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <span>
-            You already have token <strong>{active.tokenLabel}</strong>. You can be in one queue at a time.
-          </span>
+        <div className="pq-active-token" role="status">
+          <div className="pq-active-token__message">
+            <span className="pq-active-token__marker" aria-hidden="true" />
+            <span>
+              You already have token <strong>{active.tokenLabel}</strong>. You can be in one queue at a time.
+            </span>
+          </div>
           <Link to="/token" className="btn btn-sm btn-primary">
             Open my token
           </Link>
@@ -75,28 +78,45 @@ export default function Services() {
             const open = s.isActive && s.queueStatus === 'OPEN';
             return (
               <div className="col-md-6 col-lg-4" key={s._id}>
-                <div className="pq-panel h-100 d-flex flex-column">
-                  <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-                    <h2 className="h5 mb-0">{s.name}</h2>
+                <article className="pq-service-card h-100">
+                  <div className="pq-service-card__head">
+                    <div className="pq-service-card__identity">
+                      <span className="pq-service-card__mark" aria-hidden="true" />
+                      <h2>{s.name}</h2>
+                    </div>
                     <QueueStatusBadge status={s.queueStatus} isActive={s.isActive} />
                   </div>
-                  {s.description && <p className="text-secondary">{s.description}</p>}
-                  <dl className="row small mb-3 mt-auto">
-                    <dt className="col-7 fw-normal text-secondary">People waiting</dt>
-                    <dd className="col-5 fw-semibold mb-1">{s.waitingCount}</dd>
-                    <dt className="col-7 fw-normal text-secondary">Estimated wait</dt>
-                    <dd className="col-5 fw-semibold mb-1">{formatMinutes(s.estimatedWaitMinutes)}</dd>
-                    <dt className="col-7 fw-normal text-secondary">Time per person</dt>
-                    <dd className="col-5 fw-semibold mb-0">{formatMinutes(s.avgServiceMinutes)}</dd>
+                  <p className="pq-service-card__description">
+                    {s.description || 'Service details are not available.'}
+                  </p>
+                  <dl className="pq-service-card__metrics">
+                    <div>
+                      <dt>People waiting</dt>
+                      <dd>{s.waitingCount}</dd>
+                    </div>
+                    <div>
+                      <dt>Estimated wait</dt>
+                      <dd>{formatMinutes(s.estimatedWaitMinutes)}</dd>
+                    </div>
+                    <div>
+                      <dt>Average service time</dt>
+                      <dd>{formatMinutes(s.avgServiceMinutes)}</dd>
+                    </div>
                   </dl>
                   <button
-                    className="btn btn-primary w-100"
+                    className="btn btn-primary pq-service-card__join"
                     disabled={!open || !!active || joiningId === s._id}
                     onClick={() => handleJoin(s._id)}
                   >
-                    {joiningId === s._id ? 'Joining...' : open ? 'Join queue' : 'Not taking new people'}
+                    {joiningId === s._id
+                      ? 'Joining...'
+                      : !open
+                        ? 'Not taking new people'
+                        : active
+                          ? 'Already in a queue'
+                          : 'Join queue'}
                   </button>
-                </div>
+                </article>
               </div>
             );
           })}

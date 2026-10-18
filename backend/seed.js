@@ -10,6 +10,12 @@ const services = [
   { name: 'General Enquiry', code: 'GEN', description: 'Questions and general help', avgServiceMinutes: 5 },
   { name: 'Billing & Payments', code: 'BIL', description: 'Bills, payments and refunds', avgServiceMinutes: 8 },
   { name: 'Customer Support', code: 'SUP', description: 'Technical and account support', avgServiceMinutes: 10 },
+
+  { name: 'Student Registration', code: 'REG', description: 'Registration and enrollment support', avgServiceMinutes: 7 },
+  { name: 'Document Verification', code: 'DOC', description: 'Certificate and document verification', avgServiceMinutes: 6 },
+  { name: 'IT Help Desk', code: 'IT', description: 'Computer, account and system support', avgServiceMinutes: 12 },
+  { name: 'Library Services', code: 'LIB', description: 'Library membership, borrowing and account support', avgServiceMinutes: 5 },
+  { name: 'Complaint Desk', code: 'CMP', description: 'Submit and discuss service-related complaints', avgServiceMinutes: 10 },
 ];
 
 const accounts = [
