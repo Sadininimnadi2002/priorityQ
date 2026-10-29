@@ -80,6 +80,14 @@ exports.updateUser = asyncHandler(async (req, res) => {
     throw new AppError('You cannot remove your own admin access or deactivate yourself', 400);
   }
 
+  // Prevent accidental removal or deactivation of the last active administrator
+  if (user.role === 'admin' && (req.body.isActive === false || (req.body.role && req.body.role !== 'admin'))) {
+    const activeAdminsCount = await User.countDocuments({ role: 'admin', isActive: true, _id: { $ne: user._id } });
+    if (activeAdminsCount === 0) {
+      throw new AppError('Cannot deactivate or remove admin role from the last active administrator account', 400);
+    }
+  }
+
   ['name', 'email', 'phone', 'role', 'isActive', 'defaultPriority', 'password'].forEach((field) => {
     if (req.body[field] !== undefined) user[field] = req.body[field];
   });
@@ -101,6 +109,14 @@ exports.deleteUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) throw new AppError('User not found', 404);
   if (String(user._id) === String(req.user._id)) throw new AppError('You cannot delete yourself', 400);
+
+  // Prevent deleting the last active administrator
+  if (user.role === 'admin') {
+    const activeAdminsCount = await User.countDocuments({ role: 'admin', isActive: true, _id: { $ne: user._id } });
+    if (activeAdminsCount === 0) {
+      throw new AppError('Cannot delete the last active administrator account', 400);
+    }
+  }
 
   const hasHistory = await QueueEntry.exists({ user: user._id });
   if (hasHistory) {
@@ -186,21 +202,39 @@ exports.getPriorityLogs = asyncHandler(async (req, res) => {
 exports.getStats = asyncHandler(async (req, res) => {
   const today = startOfToday();
 
-  const [totalUsers, totalStaff, totalServices, activeServiceIds, totalWaiting, usersServedToday, waitAgg] =
-    await Promise.all([
-      User.countDocuments({ role: 'user' }),
-      User.countDocuments({ role: 'staff' }),
-      Service.countDocuments(),
-      QueueEntry.distinct('service', { status: { $in: ACTIVE_STATUSES } }),
-      QueueEntry.countDocuments({ status: 'WAITING' }),
-      QueueEntry.countDocuments({ status: 'COMPLETED', completedAt: { $gte: today } }),
-      QueueEntry.aggregate([
-        { $match: { status: 'COMPLETED', completedAt: { $gte: today }, calledAt: { $ne: null } } },
-        { $group: { _id: null, avgMs: { $avg: { $subtract: ['$calledAt', '$joinedAt'] } } } },
-      ]),
-    ]);
+  const [
+    totalUsers,
+    totalStaff,
+    totalServices,
+    activeServiceIds,
+    totalWaiting,
+    usersServedToday,
+    waitAgg,
+    priorityWaitingAgg,
+  ] = await Promise.all([
+    User.countDocuments({ role: 'user' }),
+    User.countDocuments({ role: 'staff' }),
+    Service.countDocuments(),
+    QueueEntry.distinct('service', { status: { $in: ACTIVE_STATUSES } }),
+    QueueEntry.countDocuments({ status: 'WAITING' }),
+    QueueEntry.countDocuments({ status: 'COMPLETED', completedAt: { $gte: today } }),
+    QueueEntry.aggregate([
+      { $match: { status: 'COMPLETED', completedAt: { $gte: today }, calledAt: { $ne: null } } },
+      { $group: { _id: null, avgMs: { $avg: { $subtract: ['$calledAt', '$joinedAt'] } } } },
+    ]),
+    QueueEntry.aggregate([
+      { $match: { status: 'WAITING' } },
+      { $group: { _id: '$priority', count: { $sum: 1 } } },
+    ]),
+  ]);
 
   const avgWaitingMinutes = waitAgg.length ? Math.round((waitAgg[0].avgMs / 60000) * 10) / 10 : 0;
+  const priorityDistribution = { EMERGENCY: 0, URGENT: 0, NORMAL: 0 };
+  priorityWaitingAgg.forEach((p) => {
+    if (p._id && priorityDistribution[p._id] !== undefined) {
+      priorityDistribution[p._id] = p.count;
+    }
+  });
 
   res.json({
     success: true,
@@ -212,6 +246,7 @@ exports.getStats = asyncHandler(async (req, res) => {
       totalWaiting,
       usersServedToday,
       avgWaitingMinutes,
+      priorityDistribution,
     },
   });
 });
@@ -264,10 +299,17 @@ exports.getReports = asyncHandler(async (req, res) => {
     else bucket[row._id.status] += row.count;
   });
 
+  const totalCustomersServed = byDay.reduce((sum, d) => sum + d.completed, 0);
+  const totalSkipped = statusRows.filter((r) => r._id.status === 'SKIPPED').reduce((sum, r) => sum + r.count, 0);
+  const totalCancelled = statusRows.filter((r) => r._id.status === 'CANCELLED').reduce((sum, r) => sum + r.count, 0);
+
   res.json({
     success: true,
     days,
     since,
+    totalCustomersServed,
+    totalSkipped,
+    totalCancelled,
     byDay: byDay.map((d) => ({
       date: d._id,
       completed: d.completed,

@@ -4,12 +4,21 @@ const QueueEntry = require('../models/QueueEntry');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { getServiceCounts, withQueueInfo } = require('../utils/queueService');
+const { escapeRegex } = require('../utils/dates');
 
-// GET /api/services  (public). Admins can add ?includeInactive=true
+// GET /api/services  (public). Admins can add ?includeInactive=true, ?q=..., ?queueStatus=...
 exports.getServices = asyncHandler(async (req, res) => {
   const filter = {};
   const isAdmin = req.user && req.user.role === 'admin';
   if (!(isAdmin && req.query.includeInactive === 'true')) filter.isActive = true;
+
+  if (req.query.q) {
+    const rx = new RegExp(escapeRegex(String(req.query.q).trim()), 'i');
+    filter.$or = [{ name: rx }, { code: rx }];
+  }
+  if (req.query.queueStatus) {
+    filter.queueStatus = req.query.queueStatus;
+  }
 
   const services = await Service.find(filter).sort({ name: 1 });
   const counts = await getServiceCounts(services.map((s) => s._id));
