@@ -61,10 +61,12 @@ export default function StaffDashboard() {
             <StatGrid
               items={[
                 { label: 'Waiting', value: stats.waitingCount },
-                { label: 'Being served', value: stats.currentServing.length },
+                { label: 'Currently Called', value: stats.calledEntries?.length || 0 },
+                { label: 'Being Served', value: stats.servingEntries?.length || 0 },
                 { label: 'Completed today', value: stats.completedToday },
                 { label: 'Skipped today', value: stats.skippedCount },
-                { label: 'Priority waiting', value: stats.urgentEmergencyCount, alert: stats.urgentEmergencyCount > 0 },
+                { label: 'Emergency waiting', value: stats.emergencyWaitingCount || 0, alert: (stats.emergencyWaitingCount || 0) > 0 },
+                { label: 'Urgent waiting', value: stats.urgentWaitingCount || 0, alert: (stats.urgentWaitingCount || 0) > 0 },
               ]}
             />
           </div>
@@ -79,11 +81,11 @@ export default function StaffDashboard() {
                   </div>
                   <span className="pq-staff-counter__signal" aria-hidden="true" />
                 </div>
-                {stats.currentServing.length === 0 ? (
+                {(!stats.calledEntries?.length && !stats.servingEntries?.length && stats.currentServing.length === 0) ? (
                   <div className="pq-staff-counter__ready">
                     <div>
                       <h3>Counter is ready</h3>
-                      <p>No customer is currently being served.</p>
+                      <p>No customer is currently called or being served.</p>
                       <p className="pq-staff-counter__hint">
                         {stats.waitingCount > 0
                           ? `${stats.waitingCount} ${stats.waitingCount === 1 ? 'customer is' : 'customers are'} waiting.`
@@ -96,30 +98,58 @@ export default function StaffDashboard() {
                   </div>
                 ) : (
                   <div className="pq-staff-counter__list">
-                    {stats.currentServing.map((entry) => {
-                      const activeSince = entry.status === 'SERVING' ? entry.servingStartedAt : entry.calledAt;
-                      const elapsedMinutes = activeSince ? minutesBetween(activeSince, new Date()) : null;
-
+                    {/* Currently Served Customers */}
+                    {(stats.servingEntries || []).map((entry) => {
+                      const elapsedMinutes = entry.servingStartedAt ? minutesBetween(entry.servingStartedAt, new Date()) : null;
                       return (
-                        <article className="pq-staff-counter__entry" key={entry._id}>
+                        <article className="pq-staff-counter__entry border-start border-4 border-success" key={entry._id}>
                           <div className="pq-staff-counter__entry-main">
                             <div className="pq-staff-counter__token">{entry.tokenLabel}</div>
-                            <div className="pq-staff-counter__customer">{entry.user?.name || 'Customer'}</div>
+                            <div className="pq-staff-counter__customer">
+                              {entry.user?.name || 'Customer'}
+                              <span className="badge bg-success ms-2">Serving</span>
+                            </div>
                           </div>
                           <div className="pq-staff-counter__entry-meta">
                             <PriorityBadge priority={entry.priority} />
                             <StatusBadge status={entry.status} />
                             {elapsedMinutes !== null && (
                               <span className="pq-staff-counter__elapsed">
-                                {entry.status === 'SERVING' ? 'Serving for' : 'Called'} {formatMinutes(elapsedMinutes)}
+                                Serving for {formatMinutes(elapsedMinutes)}
                               </span>
                             )}
                           </div>
                         </article>
                       );
                     })}
+
+                    {/* Currently Called Customers */}
+                    {(stats.calledEntries || []).map((entry) => {
+                      const elapsedMinutes = entry.calledAt ? minutesBetween(entry.calledAt, new Date()) : null;
+                      return (
+                        <article className="pq-staff-counter__entry border-start border-4 border-primary" key={entry._id}>
+                          <div className="pq-staff-counter__entry-main">
+                            <div className="pq-staff-counter__token">{entry.tokenLabel}</div>
+                            <div className="pq-staff-counter__customer">
+                              {entry.user?.name || 'Customer'}
+                              <span className="badge bg-primary ms-2">Called - Awaiting arrival</span>
+                            </div>
+                          </div>
+                          <div className="pq-staff-counter__entry-meta">
+                            <PriorityBadge priority={entry.priority} />
+                            <StatusBadge status={entry.status} />
+                            {elapsedMinutes !== null && (
+                              <span className="pq-staff-counter__elapsed">
+                                Called {formatMinutes(elapsedMinutes)} ago
+                              </span>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+
                     <Link to="/staff/controls" className="btn btn-primary pq-staff-counter__action">
-                      Open Counter
+                      Open Counter Controls
                     </Link>
                   </div>
                 )}
@@ -140,6 +170,10 @@ export default function StaffDashboard() {
                     <dd>{assignedService?.name || 'Selected service'}</dd>
                   </div>
                   <div>
+                    <dt>Queue status</dt>
+                    <dd><QueueStatusBadge status={stats.queueStatus} /></dd>
+                  </div>
+                  <div>
                     <dt>People waiting</dt>
                     <dd>{stats.waitingCount}</dd>
                   </div>
@@ -148,10 +182,24 @@ export default function StaffDashboard() {
                     <dd>{formatMinutes(stats.avgServiceMinutes)}</dd>
                   </div>
                   <div>
-                    <dt>Urgent / emergency waiting</dt>
-                    <dd className={stats.urgentEmergencyCount > 0 ? 'pq-staff-overview__priority' : ''}>
-                      {stats.urgentEmergencyCount}
+                    <dt>Emergency waiting</dt>
+                    <dd className={stats.emergencyWaitingCount > 0 ? 'text-danger fw-bold' : ''}>
+                      {stats.emergencyWaitingCount || 0}
                     </dd>
+                  </div>
+                  <div>
+                    <dt>Urgent waiting</dt>
+                    <dd className={stats.urgentWaitingCount > 0 ? 'pq-staff-overview__priority' : ''}>
+                      {stats.urgentWaitingCount || 0}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Completed today</dt>
+                    <dd>{stats.completedToday || 0}</dd>
+                  </div>
+                  <div>
+                    <dt>Skipped today</dt>
+                    <dd>{stats.skippedCount || 0}</dd>
                   </div>
                 </dl>
                 <div className="pq-staff-overview__actions">

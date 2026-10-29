@@ -181,13 +181,14 @@ export default function ActiveQueue() {
 
           {queue.skipped.length > 0 && (
             <section>
-              <h2 className="h5">Skipped today</h2>
+              <h2 className="h5">Skipped today ({queue.skipped.length})</h2>
               <div className="pq-table-wrap">
                 <table className="table">
                   <thead>
                     <tr>
                       <th>Token</th>
                       <th>Customer</th>
+                      <th>Priority</th>
                       <th>Skipped at</th>
                       <th className="text-end">Actions</th>
                     </tr>
@@ -197,6 +198,9 @@ export default function ActiveQueue() {
                       <tr key={e._id}>
                         <td className="fw-semibold">{e.tokenLabel}</td>
                         <td>{e.user?.name}</td>
+                        <td>
+                          <PriorityBadge priority={e.priority} />
+                        </td>
                         <td>{formatTime(e.skippedAt)}</td>
                         <td className="text-end">
                           <button className="btn btn-sm btn-outline-primary" disabled={busyId === e._id} onClick={() => run(e._id, () => staffApi.restore(e._id))}>
