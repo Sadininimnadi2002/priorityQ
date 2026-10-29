@@ -27,7 +27,7 @@ export default function Reports() {
   }, [logPage, logService]);
 
   useEffect(() => {
-    servicesApi.list({ includeInactive: true }).then((res) => setServices(res.services)).catch(() => {});
+    servicesApi.list({ includeInactive: true }).then((res) => setServices(res.services)).catch(() => { });
   }, []);
 
   const maxCompleted = report ? Math.max(1, ...report.byDay.map((d) => d.completed)) : 1;
@@ -49,93 +49,116 @@ export default function Reports() {
       {!report ? (
         <Loader />
       ) : (
-        <div className="row g-3 mb-4">
-          <div className="col-lg-8">
-            <div className="pq-panel h-100">
-              <h2>Customers served per day ({totalCompleted} total)</h2>
-              {report.byDay.length === 0 ? (
-                <p className="text-secondary mb-0">Nobody was served in this period.</p>
-              ) : (
-                <div className="pq-bars" role="img" aria-label="Customers served per day">
-                  {report.byDay.map((d) => (
-                    <div className="pq-bars__col" key={d.date} title={`${d.date}: ${d.completed} served, average wait ${formatMinutes(d.avgWaitMinutes)}`}>
-                      <span className="pq-bars__value">{d.completed}</span>
-                      <div className="pq-bars__bar" style={{ height: `${(d.completed / maxCompleted) * 100}%` }} />
-                      <span>{d.date.slice(5)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+        <>
+          <div className="row g-3 mb-3">
+            <div className="col-sm-4">
+              <div className="pq-panel p-3 text-center">
+                <span className="text-secondary small d-block">Customers Served</span>
+                <strong className="fs-3 text-success">{report.totalCustomersServed ?? totalCompleted}</strong>
+              </div>
             </div>
-          </div>
-          <div className="col-lg-4">
-            <div className="pq-panel h-100">
-              <h2>Tokens by priority</h2>
-              {['EMERGENCY', 'URGENT', 'NORMAL'].map((p) => (
-                <div className="d-flex justify-content-between align-items-center py-2 border-bottom" key={p}>
-                  <PriorityBadge priority={p} />
-                  <span className="fw-semibold">{report.byPriority[p] || 0}</span>
-                </div>
-              ))}
+            <div className="col-sm-4">
+              <div className="pq-panel p-3 text-center">
+                <span className="text-secondary small d-block">Skipped Customers</span>
+                <strong className="fs-3 text-warning">{report.totalSkipped ?? 0}</strong>
+              </div>
+            </div>
+            <div className="col-sm-4">
+              <div className="pq-panel p-3 text-center">
+                <span className="text-secondary small d-block">Cancelled Tokens</span>
+                <strong className="fs-3 text-danger">{report.totalCancelled ?? 0}</strong>
+              </div>
             </div>
           </div>
 
-          <div className="col-12">
-            <h2 className="h5 mt-2">By service</h2>
-            <div className="pq-table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Service</th>
-                    <th>Total tokens</th>
-                    <th>Completed</th>
-                    <th>Skipped</th>
-                    <th>Cancelled</th>
-                    <th>Still active</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.byService.map((row) => (
-                    <tr key={row.service._id}>
-                      <td className="fw-semibold">{row.service.name}</td>
-                      <td>{row.total}</td>
-                      <td>{row.COMPLETED}</td>
-                      <td>{row.SKIPPED}</td>
-                      <td>{row.CANCELLED}</td>
-                      <td>{row.ACTIVE}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="row g-3 mb-4">
+            <div className="col-lg-8">
+              <div className="pq-panel h-100">
+                <h2>Customers served per day ({report.totalCustomersServed ?? totalCompleted} total)</h2>
+                {report.byDay.length === 0 ? (
+                  <p className="text-secondary mb-0">Nobody was served in this period.</p>
+                ) : (
+                  <div className="pq-bars" role="img" aria-label="Customers served per day">
+                    {report.byDay.map((d) => (
+                      <div className="pq-bars__col" key={d.date} title={`${d.date}: ${d.completed} served, average wait ${formatMinutes(d.avgWaitMinutes)}`}>
+                        <span className="pq-bars__value">{d.completed}</span>
+                        <div className="pq-bars__bar" style={{ height: `${(d.completed / maxCompleted) * 100}%` }} />
+                        <span>{d.date.slice(5)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+            <div className="col-lg-4">
+              <div className="pq-panel h-100">
+                <h2>Tokens by priority</h2>
+                {['EMERGENCY', 'URGENT', 'NORMAL'].map((p) => (
+                  <div className="d-flex justify-content-between align-items-center py-2 border-bottom" key={p}>
+                    <PriorityBadge priority={p} />
+                    <span className="fw-semibold">{report.byPriority[p] || 0}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-          {report.byDay.length > 0 && (
             <div className="col-12">
-              <h2 className="h5 mt-2">Average wait per day</h2>
+              <h2 className="h5 mt-2">By service</h2>
               <div className="pq-table-wrap">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Date</th>
-                      <th>Served</th>
-                      <th>Average wait</th>
+                      <th>Service</th>
+                      <th>Total tokens</th>
+                      <th>Completed</th>
+                      <th>Skipped</th>
+                      <th>Cancelled</th>
+                      <th>Still active</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {report.byDay.map((d) => (
-                      <tr key={d.date}>
-                        <td>{d.date}</td>
-                        <td>{d.completed}</td>
-                        <td>{formatMinutes(d.avgWaitMinutes)}</td>
+                    {report.byService.map((row) => (
+                      <tr key={row.service._id}>
+                        <td className="fw-semibold">{row.service.name}</td>
+                        <td>{row.total}</td>
+                        <td>{row.COMPLETED}</td>
+                        <td>{row.SKIPPED}</td>
+                        <td>{row.CANCELLED}</td>
+                        <td>{row.ACTIVE}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-          )}
-        </div>
+
+            {report.byDay.length > 0 && (
+              <div className="col-12">
+                <h2 className="h5 mt-2">Average wait per day</h2>
+                <div className="pq-table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Served</th>
+                        <th>Average wait</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.byDay.map((d) => (
+                        <tr key={d.date}>
+                          <td>{d.date}</td>
+                          <td>{d.completed}</td>
+                          <td>{formatMinutes(d.avgWaitMinutes)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       <div className="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">

@@ -17,10 +17,15 @@ export default function ServiceManagement() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   const load = async () => {
     try {
-      const res = await servicesApi.list({ includeInactive: true });
+      const params = { includeInactive: true };
+      if (search.trim()) params.q = search.trim();
+      if (statusFilter) params.queueStatus = statusFilter;
+      const res = await servicesApi.list(params);
       setServices(res.services);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -29,7 +34,13 @@ export default function ServiceManagement() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    load();
+  };
 
   const openForm = (service) => {
     setEditing(service);
@@ -98,12 +109,48 @@ export default function ServiceManagement() {
       <Alert message={error} onClose={() => setError('')} />
       <Alert type="success" message={notice} onClose={() => setNotice('')} />
 
+      <form className="d-flex flex-wrap gap-2 mb-3" onSubmit={handleSearchSubmit}>
+        <input
+          className="form-control"
+          style={{ maxWidth: 280 }}
+          placeholder="Search name or code"
+          aria-label="Search service name or code"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="form-select"
+          style={{ maxWidth: 180 }}
+          aria-label="Filter by queue status"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">All statuses</option>
+          <option value="OPEN">Open</option>
+          <option value="PAUSED">Paused</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+        <button className="btn btn-outline-primary" type="submit">Search</button>
+        {(search || statusFilter) && (
+          <button
+            type="button"
+            className="btn btn-outline-secondary"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('');
+            }}
+          >
+            Clear
+          </button>
+        )}
+      </form>
+
       {!services ? (
         <Loader />
       ) : services.length === 0 ? (
         <div className="pq-panel pq-empty">
-          <h2>No services yet</h2>
-          <p className="mb-0">Add the first service so customers can join a queue.</p>
+          <h2>No services found</h2>
+          <p className="mb-0">Try clearing search filters or add a new service.</p>
         </div>
       ) : (
         <div className="pq-table-wrap">

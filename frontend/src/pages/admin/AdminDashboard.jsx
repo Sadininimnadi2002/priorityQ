@@ -48,6 +48,7 @@ export default function AdminDashboard() {
               { label: 'Total staff', value: stats.totalStaff },
               { label: 'Total services', value: stats.totalServices },
               { label: 'Active queues', value: stats.activeQueues },
+              { label: 'Waiting customers', value: stats.totalWaiting },
               { label: 'Users served today', value: stats.usersServedToday },
               { label: 'Average waiting time', value: formatMinutes(stats.avgWaitingMinutes) },
             ]}
@@ -132,6 +133,14 @@ export default function AdminDashboard() {
             <div>
               <span>Average wait</span>
               <strong>{formatMinutes(stats.avgWaitingMinutes)}</strong>
+            </div>
+            <div>
+              <span>Priority waiting</span>
+              <div className="d-flex gap-2 mt-1">
+                <span className="badge bg-danger">Emerg: {stats.priorityDistribution?.EMERGENCY || 0}</span>
+                <span className="badge bg-warning text-dark">Urg: {stats.priorityDistribution?.URGENT || 0}</span>
+                <span className="badge bg-light text-dark border">Norm: {stats.priorityDistribution?.NORMAL || 0}</span>
+              </div>
             </div>
           </div>
         </section>
