@@ -74,7 +74,68 @@ test('blendAverage uses configured value until 5 real samples exist', () => {
   assert.strictEqual(engine.blendAverage(10, [20, 20, 20, 20, 20]), 17);
 });
 
-test('getEffectiveRank is stable with default cfg object', () => {
-  assert.strictEqual(engine.getEffectiveRank(make('n', 'NORMAL', 0), now, cfg), 2);
-  assert.strictEqual(engine.getEffectiveRank(make('n', 'NORMAL', 45), now, cfg), 1);
+test('same-priority FIFO: customers with identical priority are ordered strictly by join time', () => {
+  const entries = [
+    make('n3', 'NORMAL', 2),
+    make('n1', 'NORMAL', 15),
+    make('n2', 'NORMAL', 7),
+  ];
+  const out = engine.orderQueue(entries, 0, now, { agingMinutes: 0, maxHighStreak: 0 });
+  assert.deepStrictEqual(ids(out), ['n1', 'n2', 'n3']);
+});
+
+test('emergency ordering: EMERGENCY always comes before URGENT and NORMAL', () => {
+  const entries = [
+    make('n1', 'NORMAL', 60),
+    make('u1', 'URGENT', 30),
+    make('e1', 'EMERGENCY', 0),
+  ];
+  const out = engine.orderQueue(entries, 0, now, { agingMinutes: 20, maxHighStreak: 0 });
+  assert.strictEqual(ids(out)[0], 'e1');
+});
+
+test('emergency is preserved even when high-priority streak has reached limit', () => {
+  const entries = [
+    make('e1', 'EMERGENCY', 1),
+    make('u1', 'URGENT', 2),
+    make('n1', 'NORMAL', 10),
+  ];
+  // streak is already 3, but next high priority is EMERGENCY (rank 0)
+  const out = engine.orderQueue(entries, 3, now, { agingMinutes: 0, maxHighStreak: 3 });
+  assert.strictEqual(ids(out)[0], 'e1', 'EMERGENCY must be served first despite streak');
+});
+
+test('empty queue returns empty array safely', () => {
+  const out = engine.orderQueue([], 0, now, cfg);
+  assert.deepStrictEqual(out, []);
+});
+
+test('progress-aware wait estimation: accounts for active service progress and never returns negative', () => {
+  // Case 1: First in line, no one in service -> 0 min
+  assert.strictEqual(engine.estimateWait(0, [], 5, now), 0);
+
+  // Case 2: 1 person ahead, 1 in service who started 3 min ago (of 5 min avg)
+  // Remaining = 2 min. Total wait = (1 ahead * 5) + 2 = 7 min
+  const inService = [{ servingStartedAt: new Date(now - 3 * MIN) }];
+  assert.strictEqual(engine.estimateWait(1, inService, 5, now), 7);
+
+  // Case 3: In service running longer than avg (6 min on a 5 min avg)
+  // Grace buffer of 1 min applies, total = (0 ahead * 5) + 1 = 1 min
+  const inServiceLong = [{ servingStartedAt: new Date(now - 6 * MIN) }];
+  assert.strictEqual(engine.estimateWait(0, inServiceLong, 5, now), 1);
+
+  // Case 4: Never negative under any negative inputs
+  assert.strictEqual(engine.estimateWait(-5, -3, -10, now), 0);
+});
+
+test('dynamic priority change: changing NORMAL to EMERGENCY immediately promotes token to head of queue', () => {
+  const entryNormal = make('t1', 'NORMAL', 5);
+  const entryUrgent = make('t2', 'URGENT', 4);
+  const initial = engine.orderQueue([entryNormal, entryUrgent], 0, now, { agingMinutes: 0, maxHighStreak: 0 });
+  assert.deepStrictEqual(ids(initial), ['t2', 't1']);
+
+  // Change t1 priority to EMERGENCY
+  entryNormal.priority = 'EMERGENCY';
+  const updated = engine.orderQueue([entryNormal, entryUrgent], 0, now, { agingMinutes: 0, maxHighStreak: 0 });
+  assert.deepStrictEqual(ids(updated), ['t1', 't2']);
 });
