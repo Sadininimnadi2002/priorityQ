@@ -28,6 +28,14 @@ const queueEntrySchema = new mongoose.Schema(
 // Indexes make the most common searches fast
 queueEntrySchema.index({ service: 1, status: 1 });
 queueEntrySchema.index({ user: 1, status: 1 });
+// Enforce at the database level that a user can have at most one active token
+queueEntrySchema.index(
+  { user: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ['WAITING', 'CALLED', 'SERVING'] } },
+  }
+);
 
 // State machine check: is status -> `to` allowed?
 queueEntrySchema.methods.canMoveTo = function (to) {

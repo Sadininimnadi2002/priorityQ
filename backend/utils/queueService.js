@@ -67,15 +67,15 @@ async function buildQueueView(service) {
 
 // Turn one ordered item into a plain object with position/ETA information
 function describeWaiting(item, index, view) {
-  const obj = item.entry.toObject();
+  const obj = item.entry.toObject ? item.entry.toObject() : item.entry;
   return {
     ...obj,
     position: index + 1,
     peopleAhead: index + view.inServiceCount,
-    estimatedWaitMinutes: engine.estimateWait(index, view.inServiceCount, view.avgMinutes),
+    estimatedWaitMinutes: engine.estimateWait(index, view.inProgress, view.avgMinutes, view.now),
     effectivePriority: RANK_TO_PRIORITY[item.rank],
     boosted: item.rank < PRIORITY_RANK[obj.priority], // promoted because of waiting time
-    waitedMinutes: Math.floor((view.now - new Date(obj.joinedAt).getTime()) / 60000),
+    waitedMinutes: Math.max(0, Math.floor((view.now - new Date(obj.joinedAt).getTime()) / 60000)),
   };
 }
 
