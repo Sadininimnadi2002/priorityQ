@@ -1,10 +1,39 @@
-// Turn any API error into one readable sentence
+// Turn any API error into a clear, user-friendly message
 export const getErrorMessage = (err) => {
+  if (err?.code === 'ECONNABORTED' || err?.message?.toLowerCase().includes('timeout')) {
+    return 'Request timed out. Please check your network connection and try again.';
+  }
+  if (err?.request && !err?.response) {
+    return 'Unable to reach the server. Please verify your internet connection or check if the backend is running.';
+  }
+
+  const status = err?.response?.status;
   const body = err?.response?.data;
-  if (body?.errors?.length) return body.errors.map((e) => e.message).join('. ');
-  if (body?.message) return body.message;
-  if (err?.request && !err?.response) return 'Cannot reach the server. Check that the backend is running.';
-  return err?.message || 'Something went wrong';
+
+  if (body?.errors?.length) {
+    return body.errors.map((e) => e.message).join('. ');
+  }
+  if (body?.message) {
+    return body.message;
+  }
+
+  if (status === 401) {
+    return 'Your session has expired. Please log in again to continue.';
+  }
+  if (status === 403) {
+    return 'You do not have permission to perform this action.';
+  }
+  if (status === 404) {
+    return 'The requested queue, token, or service was not found.';
+  }
+  if (status === 409) {
+    return 'A conflict occurred. The token or queue may have already been updated.';
+  }
+  if (status >= 500) {
+    return 'An internal server error occurred. Please try again in a few moments.';
+  }
+
+  return err?.message || 'An unexpected error occurred. Please try again.';
 };
 
 export const formatMinutes = (minutes) => {
