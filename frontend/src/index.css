@@ -1801,3 +1801,395 @@ textarea:focus-visible {
     font-size: 0.875rem;
   }
 }
+
+/* ==========================================================================
+   CUSTOMER DASHBOARD & SERVICES PAGE IMPROVEMENTS
+   ========================================================================== */
+
+/* Live pulse badge */
+.pq-badge--live {
+  background: var(--pq-success-tint);
+  color: var(--pq-success-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pq-badge--live::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--pq-success);
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+  animation: pq-pulse 2s infinite;
+}
+
+@keyframes pq-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(22, 163, 74, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+/* ---------- Services Page: Summary Cards ---------- */
+.pq-services-summary__card {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1.25rem 1.4rem;
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(var(--pq-shadow-rgb), 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.pq-services-summary__card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(var(--pq-shadow-rgb), 0.07);
+}
+
+.pq-services-summary__icon-box {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.pq-services-summary__card--total .pq-services-summary__icon-box {
+  background: var(--pq-purple-tint);
+  color: var(--pq-primary);
+}
+
+.pq-services-summary__card--open .pq-services-summary__icon-box {
+  background: var(--pq-success-tint);
+  color: var(--pq-success);
+}
+
+.pq-services-summary__card--closed .pq-services-summary__icon-box {
+  background: var(--pq-neutral-tint);
+  color: var(--pq-muted);
+}
+
+.pq-services-summary__content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.pq-services-summary__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pq-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pq-services-summary__count {
+  font-family: var(--pq-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--pq-text);
+}
+
+.pq-services-summary__meta {
+  font-size: 0.8rem;
+  color: var(--pq-muted);
+}
+
+/* ---------- Services Page: Search & Filter Toolbar ---------- */
+.pq-services-toolbar {
+  border: 1px solid var(--pq-border);
+  border-radius: 14px;
+  background: var(--pq-surface);
+}
+
+.pq-search-input {
+  border-radius: 10px;
+  font-size: 0.95rem;
+  border-color: var(--pq-border);
+  background-color: var(--pq-surface);
+}
+
+.pq-search-input:focus {
+  border-color: var(--pq-accent);
+  box-shadow: 0 0 0 3px rgba(var(--pq-primary-rgb), 0.15);
+}
+
+.pq-search-clear-btn {
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.pq-search-clear-btn:hover {
+  opacity: 1;
+}
+
+.pq-services-not-found {
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  border-radius: 14px;
+}
+
+/* ---------- Services Page: Service Cards v2 ---------- */
+.pq-service-card-v2 {
+  display: flex;
+  flex-direction: column;
+  padding: 1.4rem;
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(var(--pq-shadow-rgb), 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.pq-service-card-v2::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--pq-primary), var(--pq-accent));
+  opacity: 0.85;
+}
+
+.pq-service-card-v2--closed::before {
+  background: var(--pq-border);
+}
+
+.pq-service-card-v2:hover {
+  transform: translateY(-3px);
+  border-color: var(--pq-accent-light);
+  box-shadow: 0 12px 28px rgba(var(--pq-shadow-rgb), 0.09);
+}
+
+.pq-service-card-v2__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.pq-service-card-v2__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.pq-service-card-v2__code {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pq-primary);
+  background: var(--pq-purple-tint);
+  border: 1px solid var(--pq-purple-border);
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.pq-service-card-v2__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--pq-text);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.pq-service-card-v2__description {
+  font-size: 0.9rem;
+  color: var(--pq-muted);
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+  min-height: 2.7rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pq-service-card-v2__metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--pq-border);
+  border-bottom: 1px solid var(--pq-border);
+  margin-bottom: 1rem;
+}
+
+.pq-service-card-v2__metric-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+
+.pq-service-card-v2__metric-label {
+  display: flex;
+  align-items: center;
+  color: var(--pq-muted);
+  font-weight: 500;
+}
+
+.pq-service-card-v2__metric-value {
+  font-weight: 600;
+}
+
+.pq-service-card-v2__join-btn {
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.pq-service-card-v2__join-btn:not(:disabled):hover {
+  background-color: var(--pq-primary-dark);
+  box-shadow: 0 4px 14px rgba(var(--pq-primary-rgb), 0.35);
+}
+
+/* ---------- Customer Dashboard: Welcome Banner ---------- */
+.pq-user-welcome {
+  background: linear-gradient(135deg, rgba(91, 33, 182, 0.07) 0%, rgba(139, 92, 246, 0.04) 100%);
+  border: 1px solid var(--pq-purple-border) !important;
+  border-radius: 16px;
+}
+
+/* ---------- Customer Dashboard: Statistics Cards ---------- */
+.pq-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1.25rem 1.4rem;
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(var(--pq-shadow-rgb), 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pq-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(var(--pq-shadow-rgb), 0.07);
+}
+
+.pq-stat-card__icon-box {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.pq-stat-card--joined .pq-stat-card__icon-box {
+  background: var(--pq-purple-tint);
+  color: var(--pq-primary);
+}
+
+.pq-stat-card--completed .pq-stat-card__icon-box {
+  background: var(--pq-success-tint);
+  color: var(--pq-success);
+}
+
+.pq-stat-card--active .pq-stat-card__icon-box {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.pq-stat-card__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.pq-stat-card__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pq-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pq-stat-card__value {
+  font-family: var(--pq-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--pq-text);
+}
+
+.pq-stat-card__meta {
+  font-size: 0.8rem;
+  color: var(--pq-muted);
+}
+
+/* ---------- Customer Dashboard: Quick Action Cards ---------- */
+.pq-action-card {
+  border: 1px solid var(--pq-border);
+  border-radius: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
+}
+
+.pq-action-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--pq-accent);
+  box-shadow: 0 10px 24px rgba(var(--pq-shadow-rgb), 0.08);
+}
+
+.pq-action-card:hover .pq-action-card__arrow {
+  color: var(--pq-primary) !important;
+  transform: translateX(3px);
+}
+
+.pq-action-card__arrow {
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.pq-action-card__icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+/* ---------- Customer Dashboard: Available Services Preview ---------- */
+.pq-service-preview-card {
+  border: 1px solid var(--pq-border);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pq-service-preview-card:hover {
+  background-color: #fff !important;
+  border-color: var(--pq-accent-light);
+}
