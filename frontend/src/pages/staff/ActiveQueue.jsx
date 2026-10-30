@@ -48,8 +48,13 @@ export default function ActiveQueue() {
     }
   };
 
-  const savePriority = async (priority, reason) => {
-    const ok = await run(priorityEntry._id, () => staffApi.changePriority(priorityEntry._id, priority, reason));
+  const savePriority = async (targetId, priority, reason) => {
+    // Support both savePriority(id, priority, reason) and savePriority(priority, reason)
+    const id = reason !== undefined ? targetId : priorityEntry?._id;
+    const prio = reason !== undefined ? priority : targetId;
+    const rsn = reason !== undefined ? reason : priority;
+    if (!id) return;
+    const ok = await run(id, () => staffApi.changePriority(id, prio, rsn));
     if (ok) setPriorityEntry(null);
   };
 
@@ -217,7 +222,13 @@ export default function ActiveQueue() {
         </>
       )}
 
-      <PriorityModal entry={priorityEntry} onClose={() => setPriorityEntry(null)} onSave={savePriority} saving={!!busyId} />
+      <PriorityModal
+        entry={priorityEntry}
+        waitingTokens={queue?.waiting || []}
+        onClose={() => setPriorityEntry(null)}
+        onSave={savePriority}
+        saving={!!busyId}
+      />
     </>
   );
 }
