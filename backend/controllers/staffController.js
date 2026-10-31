@@ -15,6 +15,8 @@ const {
   withQueueInfo,
   getAvgMinutes,
 } = require('../utils/queueService');
+const { notifyQueueEvent, notifyQueueStatusChange } = require('../utils/notificationService');
+const { broadcastQueueUpdatesForService, notifyCustomerTerminalUpdate } = require('../utils/queueSocketService');
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -145,6 +147,21 @@ exports.callNext = asyncHandler(async (req, res) => {
   await registerCall(service, claimedEntry);
   await claimedEntry.populate('user', 'name email phone');
 
+  // Notify customer in real-time and save to history
+  await notifyQueueEvent({
+    user: claimedEntry.user,
+    queueEntry: claimedEntry,
+    service,
+    type: 'TOKEN_CALLED',
+    title: `Your Token ${claimedEntry.tokenLabel} Has Been Called!`,
+    message: `Please proceed to the ${service.name} counter.`,
+    tokenLabel: claimedEntry.tokenLabel,
+    serviceName: service.name,
+  });
+
+  // Broadcast updated queue positions to remaining waiting customers
+  broadcastQueueUpdatesForService(service._id);
+
   res.json({ success: true, message: `Called token ${claimedEntry.tokenLabel}`, entry: claimedEntry });
 });
 
@@ -179,6 +196,22 @@ exports.callToken = asyncHandler(async (req, res) => {
 
   await registerCall(service, updated);
   await updated.populate('user', 'name email phone');
+
+  // Notify customer in real-time and save to history
+  await notifyQueueEvent({
+    user: updated.user,
+    queueEntry: updated,
+    service,
+    type: 'TOKEN_CALLED',
+    title: `Your Token ${updated.tokenLabel} Has Been Called!`,
+    message: `Please proceed to the ${service.name} counter.`,
+    tokenLabel: updated.tokenLabel,
+    serviceName: service.name,
+  });
+
+  // Broadcast updated queue positions to remaining waiting customers
+  broadcastQueueUpdatesForService(service._id);
+
   res.json({ success: true, message: `Called token ${updated.tokenLabel}`, entry: updated });
 });
 
@@ -202,6 +235,23 @@ exports.serveToken = asyncHandler(async (req, res) => {
   if (!updated) {
     throw new AppError(`Token ${entry.tokenLabel} is no longer in CALLED status`, 409);
   }
+
+  const service = await loadService(updated.service);
+
+  // Notify customer that service has commenced
+  await notifyQueueEvent({
+    user: updated.user,
+    queueEntry: updated,
+    service,
+    type: 'TOKEN_SERVING',
+    title: `Serving Started for Token ${updated.tokenLabel}`,
+    message: `You are now being served at the ${service.name} counter.`,
+    tokenLabel: updated.tokenLabel,
+    serviceName: service.name,
+  });
+
+  // Broadcast updated queue positions and in-progress status
+  broadcastQueueUpdatesForService(service._id);
 
   res.json({ success: true, message: `Now serving token ${updated.tokenLabel}`, entry: updated });
 });
@@ -227,6 +277,24 @@ exports.completeToken = asyncHandler(async (req, res) => {
     throw new AppError(`Token ${entry.tokenLabel} is no longer in SERVING status`, 409);
   }
 
+  const service = await loadService(updated.service);
+
+  // Notify customer that service is completed
+  await notifyQueueEvent({
+    user: updated.user,
+    queueEntry: updated,
+    service,
+    type: 'TOKEN_COMPLETED',
+    title: `Service Completed for Token ${updated.tokenLabel}`,
+    message: `Your visit for ${service.name} has been completed. Thank you!`,
+    tokenLabel: updated.tokenLabel,
+    serviceName: service.name,
+  });
+
+  // Update customer terminal status and broadcast updated queue positions
+  notifyCustomerTerminalUpdate(updated, service);
+  broadcastQueueUpdatesForService(service._id);
+
   res.json({ success: true, message: `Completed service for ${updated.tokenLabel}`, entry: updated });
 });
 
@@ -250,6 +318,24 @@ exports.skipToken = asyncHandler(async (req, res) => {
   if (!updated) {
     throw new AppError(`Token ${entry.tokenLabel} could not be skipped because its status has changed`, 409);
   }
+
+  const service = await loadService(updated.service);
+
+  // Notify customer that token was skipped
+  await notifyQueueEvent({
+    user: updated.user,
+    queueEntry: updated,
+    service,
+    type: 'TOKEN_SKIPPED',
+    title: `Token ${updated.tokenLabel} Was Skipped`,
+    message: `Your token was marked as skipped. Please speak to staff at ${service.name} to be put back in queue.`,
+    tokenLabel: updated.tokenLabel,
+    serviceName: service.name,
+  });
+
+  // Update customer terminal status and broadcast updated queue positions
+  notifyCustomerTerminalUpdate(updated, service);
+  broadcastQueueUpdatesForService(service._id);
 
   res.json({ success: true, message: `Skipped token ${updated.tokenLabel}`, entry: updated });
 });
@@ -285,6 +371,8 @@ exports.restoreToken = asyncHandler(async (req, res) => {
   }
 
   const queueInfo = await getEntryQueueInfo(updated);
+  broadcastQueueUpdatesForService(entry.service);
+
   res.json({ success: true, message: `Restored token ${updated.tokenLabel} to waiting queue`, entry: updated, queueInfo });
 });
 
@@ -315,6 +403,8 @@ exports.changePriority = asyncHandler(async (req, res) => {
   });
 
   const queueInfo = await getEntryQueueInfo(entry);
+  broadcastQueueUpdatesForService(entry.service);
+
   res.json({ success: true, message: `Priority changed to ${priority}`, entry, queueInfo, log });
 });
 
@@ -331,8 +421,21 @@ exports.setQueueStatus = asyncHandler(async (req, res) => {
 
   const prevStatus = service.queueStatus;
   const newStatus = req.body.status;
+
+  // Prevent duplicate status change operations and redundant notifications
+  if (prevStatus === newStatus) {
+    return res.json({
+      success: true,
+      message: `Queue is already ${newStatus.toLowerCase()}`,
+      service,
+    });
+  }
+
   service.queueStatus = newStatus;
   await service.save();
+
+  // Notify affected waiting customers when a queue is paused or resumed
+  await notifyQueueStatusChange({ service, newStatus, prevStatus });
 
   let message = `Queue status set to ${newStatus}`;
   if (newStatus === 'OPEN') {
@@ -342,6 +445,8 @@ exports.setQueueStatus = asyncHandler(async (req, res) => {
   } else if (newStatus === 'CLOSED') {
     message = 'Queue closed. No new customers can join, but existing waiting customers can still be served.';
   }
+
+  broadcastQueueUpdatesForService(service._id);
 
   res.json({ success: true, message, service });
 });
