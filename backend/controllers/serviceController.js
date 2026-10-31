@@ -5,6 +5,7 @@ const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { getServiceCounts, withQueueInfo } = require('../utils/queueService');
 const { escapeRegex } = require('../utils/dates');
+const { broadcastQueueUpdatesForService } = require('../utils/queueSocketService');
 
 // GET /api/services  (public). Admins can add ?includeInactive=true, ?q=..., ?queueStatus=...
 exports.getServices = asyncHandler(async (req, res) => {
@@ -51,6 +52,7 @@ exports.updateService = asyncHandler(async (req, res) => {
   });
 
   await service.save();
+  broadcastQueueUpdatesForService(service._id);
   res.json({ success: true, service });
 });
 
@@ -64,6 +66,7 @@ exports.setServiceStatus = asyncHandler(async (req, res) => {
   if (!isActive) service.queueStatus = 'CLOSED'; // no new joins while deactivated
   await service.save();
 
+  broadcastQueueUpdatesForService(service._id);
   res.json({ success: true, service });
 });
 
