@@ -1,8 +1,10 @@
 require('dotenv').config();
 
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const { initSocket } = require('./utils/socket');
 const { notFound, errorHandler } = require('./middleware/error');
 
 // Fail early with a clear message if the .env file is incomplete
@@ -32,13 +34,18 @@ app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/queue', require('./routes/queueRoutes'));
 app.use('/api/staff', require('./routes/staffRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // These two MUST stay last
 app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+
+// Initialize real-time Socket.IO communication
+initSocket(server);
 
 connectDB().then(() => {
-  app.listen(PORT, () => console.log(`PriorityQ API running on http://localhost:${PORT}`));
+  server.listen(PORT, () => console.log(`PriorityQ API running on http://localhost:${PORT}`));
 });
