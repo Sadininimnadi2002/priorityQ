@@ -2193,3 +2193,458 @@ textarea:focus-visible {
   background-color: #fff !important;
   border-color: var(--pq-accent-light);
 }
+
+/* ==========================================================================
+   FEATURE 1: LIVE TOKEN NOTIFICATIONS (BELL, PANEL & TOAST)
+   ========================================================================== */
+
+/* ---------- Floating Notification Toast ---------- */
+.pq-notification-toast {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 380px;
+  max-width: calc(100vw - 2rem);
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-purple-border) !important;
+  border-left: 4px solid var(--pq-primary) !important;
+  box-shadow: 0 14px 38px rgba(91, 33, 182, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  z-index: 1080;
+  animation: pq-toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pq-toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pq-toast-icon-box {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  background: var(--pq-primary) !important;
+}
+
+/* ---------- Notification Bell Button ---------- */
+.pq-bell-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  box-shadow: 0 2px 8px rgba(var(--pq-shadow-rgb), 0.05);
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pq-bell-btn:hover,
+.pq-bell-btn--active {
+  background: var(--pq-purple-tint);
+  border-color: var(--pq-accent-light);
+  transform: scale(1.05);
+}
+
+.pq-bell-badge {
+  font-size: 0.68rem;
+  padding: 0.25em 0.55em;
+  font-weight: 700;
+  border: 2px solid var(--pq-surface);
+}
+
+/* ---------- Notification Center Dropdown Panel ---------- */
+.pq-notification-panel {
+  width: 380px;
+  max-width: calc(100vw - 2rem);
+  z-index: 1060;
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-purple-border) !important;
+  box-shadow: 0 16px 42px rgba(var(--pq-shadow-rgb), 0.14) !important;
+  animation: pq-panel-fade-in 0.2s ease-out;
+}
+
+@keyframes pq-panel-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pq-notification-item {
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.pq-notification-item:hover {
+  background-color: var(--pq-purple-tint);
+}
+
+.pq-notification-item--unread {
+  background-color: rgba(91, 33, 182, 0.04);
+}
+
+.pq-unread-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   FEATURE 2: Modern Queue Progress Card & Real-Time Tracking
+   ========================================================================== */
+.pq-queue-progress-card {
+  background: var(--pq-surface);
+  border-radius: 1rem;
+  border: 1px solid var(--pq-purple-border);
+  box-shadow: 0 10px 30px rgba(91, 33, 182, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pq-queue-progress-card:hover {
+  box-shadow: 0 14px 36px rgba(91, 33, 182, 0.12), 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.pq-queue-progress-card__header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--pq-border);
+  background: linear-gradient(180deg, var(--pq-purple-tint) 0%, rgba(247, 245, 255, 0.4) 100%);
+}
+
+.pq-live-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pq-success);
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+  animation: pq-pulse-glow 1.8s infinite;
+}
+
+@keyframes pq-pulse-glow {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(22, 163, 74, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+.pq-queue-progress-card__hero {
+  padding: 1.75rem 1.5rem 1rem;
+  text-align: center;
+}
+
+.pq-queue-token-number {
+  font-family: var(--pq-display), system-ui, sans-serif;
+  font-size: 3.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--pq-primary) 0%, var(--pq-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.pq-queue-stepper-wrap {
+  padding: 0.5rem 1.5rem 1.25rem;
+}
+
+.pq-queue-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.pq-queue-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pq-muted);
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  min-width: 60px;
+}
+
+.pq-queue-step__dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--pq-surface);
+  border: 2px solid var(--pq-border);
+  color: var(--pq-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  transition: all 0.25s ease;
+}
+
+.pq-queue-step--active .pq-queue-step__dot {
+  background: var(--pq-primary);
+  border-color: var(--pq-primary);
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(91, 33, 182, 0.2);
+}
+
+.pq-queue-step--done .pq-queue-step__dot {
+  background: var(--pq-success);
+  border-color: var(--pq-success);
+  color: #ffffff;
+}
+
+.pq-queue-step--active {
+  color: var(--pq-primary);
+  font-weight: 700;
+}
+
+.pq-queue-step--done {
+  color: var(--pq-success);
+}
+
+.pq-progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--pq-border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pq-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pq-primary) 0%, var(--pq-accent) 100%);
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pq-queue-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--pq-surface-muted);
+  border-top: 1px solid var(--pq-border);
+  border-bottom: 1px solid var(--pq-border);
+}
+
+@media (max-width: 768px) {
+  .pq-queue-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.pq-queue-metric-item {
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  border-radius: 0.75rem;
+  padding: 1rem 0.75rem;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.pq-queue-metric-item__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pq-muted);
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.pq-queue-metric-item__value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--pq-primary);
+  line-height: 1.2;
+}
+
+.pq-queue-metric-item__sub {
+  font-size: 0.72rem;
+  color: var(--pq-muted);
+  margin-top: 0.25rem;
+}
+
+.pq-queue-progress-card__footer {
+  padding: 1rem 1.5rem;
+  background: var(--pq-surface);
+}
+
+/* ==========================================================================
+   FEATURE 3: Staff Active Queue Search and Filtering
+   ========================================================================== */
+.pq-staff-filter-toolbar {
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-purple-border) !important;
+  border-radius: 0.85rem;
+}
+
+.pq-staff-filter-toolbar .form-control:focus,
+.pq-staff-filter-toolbar .form-select:focus {
+  border-color: var(--pq-primary);
+  box-shadow: 0 0 0 0.25rem rgba(91, 33, 182, 0.15);
+}
+
+.btn-close-xs {
+  width: 0.45rem;
+  height: 0.45rem;
+  opacity: 0.7;
+}
+
+.btn-close-xs:hover {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   FEATURE 4: Admin Analytics Dashboard Styling
+   ========================================================================== */
+.pq-analytics-card {
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-purple-border);
+  border-radius: 0.85rem;
+  box-shadow: 0 4px 18px rgba(91, 33, 182, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pq-analytics-card:hover {
+  box-shadow: 0 8px 24px rgba(91, 33, 182, 0.09);
+}
+
+.pq-analytics-stat-card {
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.pq-analytics-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--pq-primary);
+}
+
+.pq-analytics-stat-card--success::before {
+  background: var(--pq-success);
+}
+
+.pq-analytics-stat-card--warning::before {
+  background: var(--pq-warning);
+}
+
+.pq-analytics-stat-card--danger::before {
+  background: var(--pq-danger);
+}
+
+.pq-analytics-stat-card--accent::before {
+  background: var(--pq-accent);
+}
+
+.pq-analytics-stat-card__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pq-muted);
+  margin-bottom: 0.35rem;
+}
+
+.pq-analytics-stat-card__value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--pq-text);
+  line-height: 1.1;
+}
+
+.pq-analytics-stat-card__sub {
+  font-size: 0.72rem;
+  color: var(--pq-muted);
+  margin-top: 0.35rem;
+}
+
+.pq-chart-box {
+  background: var(--pq-surface);
+  border: 1px solid var(--pq-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  height: 100%;
+}
+
+.pq-chart-box__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pq-text);
+  margin-bottom: 0.25rem;
+}
+
+.pq-chart-box__subtitle {
+  font-size: 0.75rem;
+  color: var(--pq-muted);
+  margin-bottom: 1rem;
+}
+
+.pq-service-perf-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.85rem;
+}
+
+.pq-service-perf-track {
+  width: 100%;
+  height: 10px;
+  background: var(--pq-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.pq-service-perf-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pq-primary) 0%, var(--pq-accent) 100%);
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+
+.pq-filter-pill-btn {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: 2rem;
+  transition: all 0.15s ease;
+}
