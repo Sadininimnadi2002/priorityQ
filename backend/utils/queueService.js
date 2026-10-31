@@ -101,14 +101,16 @@ async function getEntryQueueInfo(entry) {
   if (index === -1) return null;
 
   const info = describeWaiting(view.ordered[index], index, view);
+  const isPaused = service.queueStatus === 'PAUSED';
   return {
     position: info.position,
     peopleAhead: info.peopleAhead,
-    estimatedWaitMinutes: info.estimatedWaitMinutes,
+    estimatedWaitMinutes: isPaused ? null : info.estimatedWaitMinutes,
     avgMinutes: view.avgMinutes,
     effectivePriority: info.effectivePriority,
     boosted: info.boosted,
     queueStatus: service.queueStatus,
+    isPaused,
     totalWaiting: view.ordered.length,
   };
 }
