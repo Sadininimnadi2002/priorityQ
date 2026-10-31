@@ -51,4 +51,12 @@ export const adminApi = {
   priorityLogs: (params) => data(api.get('/admin/priority-logs', { params })),
   stats: () => data(api.get('/admin/stats')),
   reports: (days) => data(api.get('/admin/reports', { params: { days } })),
+  analytics: (params) => data(api.get('/admin/analytics', { params })),
 };
+
+export const notificationApi = {
+  list: () => data(api.get('/notifications')),
+  markRead: (id) => data(api.patch(`/notifications/${id}/read`)),
+  markAllRead: () => data(api.patch('/notifications/mark-all-read')),
+};
+
