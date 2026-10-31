@@ -4,6 +4,7 @@ const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { ACTIVE_STATUSES } = require('../utils/constants');
 const { nextTokenNumber, getEntryQueueInfo } = require('../utils/queueService');
+const { broadcastQueueUpdatesForService, notifyCustomerTerminalUpdate } = require('../utils/queueSocketService');
 
 // POST /api/queue/join  { serviceId }
 exports.joinQueue = asyncHandler(async (req, res) => {
@@ -30,6 +31,10 @@ exports.joinQueue = asyncHandler(async (req, res) => {
   });
 
   const queueInfo = await getEntryQueueInfo(entry);
+
+  // Notify all customers in the queue of the position updates
+  broadcastQueueUpdatesForService(service._id);
+
   res.status(201).json({ success: true, entry, queueInfo });
 });
 
@@ -73,6 +78,10 @@ exports.leaveQueue = asyncHandler(async (req, res) => {
   entry.status = 'CANCELLED';
   entry.cancelledAt = new Date();
   await entry.save();
+
+  const service = await Service.findById(entry.service);
+  notifyCustomerTerminalUpdate(entry, service);
+  broadcastQueueUpdatesForService(entry.service);
 
   res.json({ success: true, message: 'You have left the queue', entry });
 });
