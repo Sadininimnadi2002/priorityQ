@@ -319,3 +319,308 @@ exports.getReports = asyncHandler(async (req, res) => {
     byPriority: byPriority.reduce((acc, p) => ({ ...acc, [p._id]: p.count }), { EMERGENCY: 0, URGENT: 0, NORMAL: 0 }),
   });
 });
+
+// GET /api/admin/analytics?period=today|7days|30days|custom&startDate=...&endDate=...
+exports.getAnalytics = asyncHandler(async (req, res) => {
+  const period = req.query.period || '7days';
+  const todayStart = startOfToday();
+  const todayEnd = new Date(todayStart);
+  todayEnd.setHours(23, 59, 59, 999);
+
+  let startDate, endDate;
+  if (period === 'today') {
+    startDate = new Date(todayStart);
+    endDate = new Date(todayEnd);
+  } else if (period === '30days') {
+    startDate = new Date(todayStart);
+    startDate.setDate(startDate.getDate() - 29);
+    endDate = new Date(todayEnd);
+  } else if (period === 'custom' && req.query.startDate && req.query.endDate) {
+    startDate = new Date(req.query.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(req.query.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
+      startDate = new Date(todayStart);
+      startDate.setDate(startDate.getDate() - 6);
+      endDate = new Date(todayEnd);
+    }
+  } else {
+    // default: 7days
+    startDate = new Date(todayStart);
+    startDate.setDate(startDate.getDate() - 6);
+    endDate = new Date(todayEnd);
+  }
+
+  // Execute efficient MongoDB aggregation queries in parallel
+  const [
+    totalTokensToday,
+    servedToday,
+    currentlyWaiting,
+    waitTodayAgg,
+    activeServicesCount,
+    emergencyToday,
+
+    totalTokensPeriod,
+    servedPeriod,
+    waitPeriodAgg,
+    emergencyPeriod,
+
+    dailyCompletedAgg,
+    dailyCreatedAgg,
+    priorityAgg,
+    servicePerformanceAgg,
+    allServices,
+  ] = await Promise.all([
+    // 1. Dashboard summary cards (Today metrics)
+    QueueEntry.countDocuments({ createdAt: { $gte: todayStart, $lte: todayEnd } }),
+    QueueEntry.countDocuments({ status: 'COMPLETED', completedAt: { $gte: todayStart, $lte: todayEnd } }),
+    QueueEntry.countDocuments({ status: 'WAITING' }),
+    QueueEntry.aggregate([
+      {
+        $match: {
+          status: 'COMPLETED',
+          completedAt: { $gte: todayStart, $lte: todayEnd },
+          $or: [{ calledAt: { $ne: null } }, { servingStartedAt: { $ne: null } }],
+          joinedAt: { $ne: null },
+        },
+      },
+      {
+        $project: {
+          firstEvent: { $ifNull: ['$calledAt', '$servingStartedAt'] },
+          joinedAt: '$joinedAt',
+        },
+      },
+      {
+        $project: {
+          waitMs: { $subtract: ['$firstEvent', '$joinedAt'] },
+        },
+      },
+      {
+        $match: { waitMs: { $gte: 0 } },
+      },
+      {
+        $group: {
+          _id: null,
+          avgWaitMs: { $avg: '$waitMs' },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+    Service.countDocuments({ isActive: true }),
+    QueueEntry.countDocuments({ priority: 'EMERGENCY', createdAt: { $gte: todayStart, $lte: todayEnd } }),
+
+    // Period summary metrics
+    QueueEntry.countDocuments({ createdAt: { $gte: startDate, $lte: endDate } }),
+    QueueEntry.countDocuments({ status: 'COMPLETED', completedAt: { $gte: startDate, $lte: endDate } }),
+    QueueEntry.aggregate([
+      {
+        $match: {
+          status: 'COMPLETED',
+          completedAt: { $gte: startDate, $lte: endDate },
+          $or: [{ calledAt: { $ne: null } }, { servingStartedAt: { $ne: null } }],
+          joinedAt: { $ne: null },
+        },
+      },
+      {
+        $project: {
+          firstEvent: { $ifNull: ['$calledAt', '$servingStartedAt'] },
+          joinedAt: '$joinedAt',
+        },
+      },
+      {
+        $project: {
+          waitMs: { $subtract: ['$firstEvent', '$joinedAt'] },
+        },
+      },
+      {
+        $match: { waitMs: { $gte: 0 } },
+      },
+      {
+        $group: {
+          _id: null,
+          avgWaitMs: { $avg: '$waitMs' },
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+    QueueEntry.countDocuments({ priority: 'EMERGENCY', createdAt: { $gte: startDate, $lte: endDate } }),
+
+    // 2. Daily served customers aggregation
+    QueueEntry.aggregate([
+      {
+        $match: {
+          status: 'COMPLETED',
+          completedAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } },
+          completed: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+
+    // 3. Daily created tokens aggregation
+    QueueEntry.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          created: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+
+    // 4. Stored priority distribution
+    QueueEntry.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: '$priority',
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+
+    // 6. Service performance aggregation
+    QueueEntry.aggregate([
+      {
+        $match: {
+          status: 'COMPLETED',
+          completedAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: '$service',
+          completed: { $sum: 1 },
+        },
+      },
+      { $sort: { completed: -1 } },
+    ]),
+
+    Service.find().select('name code isActive').lean(),
+  ]);
+
+  const avgWaitMinutesToday =
+    waitTodayAgg.length && waitTodayAgg[0].count > 0
+      ? Math.round((waitTodayAgg[0].avgWaitMs / 60000) * 10) / 10
+      : null;
+
+  const avgWaitMinutesPeriod =
+    waitPeriodAgg.length && waitPeriodAgg[0].count > 0
+      ? Math.round((waitPeriodAgg[0].avgWaitMs / 60000) * 10) / 10
+      : null;
+
+  // Build contiguous daily series
+  const completedMap = {};
+  dailyCompletedAgg.forEach((d) => {
+    completedMap[d._id] = d.completed;
+  });
+
+  const createdMap = {};
+  dailyCreatedAgg.forEach((d) => {
+    createdMap[d._id] = d.created;
+  });
+
+  const dailyActivity = [];
+  const cur = new Date(startDate);
+  let safety = 0;
+  while (cur <= endDate && safety < 100) {
+    safety++;
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    const dateKey = `${y}-${m}-${d}`;
+    const label = cur.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    dailyActivity.push({
+      date: dateKey,
+      label,
+      completed: completedMap[dateKey] || 0,
+      created: createdMap[dateKey] || 0,
+    });
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  // Priority distribution counts
+  const priorityDistribution = { NORMAL: 0, URGENT: 0, EMERGENCY: 0 };
+  let priorityTotal = 0;
+  priorityAgg.forEach((p) => {
+    if (p._id && priorityDistribution[p._id] !== undefined) {
+      priorityDistribution[p._id] = p.count;
+      priorityTotal += p.count;
+    }
+  });
+
+  // Service performance map
+  const serviceMap = {};
+  allServices.forEach((s) => {
+    serviceMap[String(s._id)] = {
+      serviceId: s._id,
+      name: s.name,
+      code: s.code,
+      isActive: s.isActive,
+      completed: 0,
+    };
+  });
+  servicePerformanceAgg.forEach((item) => {
+    if (serviceMap[String(item._id)]) {
+      serviceMap[String(item._id)].completed = item.completed;
+    }
+  });
+  const servicePerformance = Object.values(serviceMap).sort((a, b) => b.completed - a.completed);
+
+  res.json({
+    success: true,
+    filter: {
+      period,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      displayLabel:
+        period === 'today'
+          ? 'Today'
+          : period === '7days'
+          ? 'Last 7 Days'
+          : period === '30days'
+          ? 'Last 30 Days'
+          : `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`,
+    },
+    summary: {
+      totalTokensToday,
+      customersServedToday: servedToday,
+      currentlyWaitingCustomers: currentlyWaiting,
+      averageWaitingTimeToday: avgWaitMinutesToday,
+      activeServices: activeServicesCount,
+      emergencyTokensToday: emergencyToday,
+
+      totalTokensPeriod,
+      customersServedPeriod: servedPeriod,
+      averageWaitingTimePeriod: avgWaitMinutesPeriod,
+      emergencyTokensPeriod: emergencyPeriod,
+    },
+    dailyServed: dailyActivity.map((d) => ({
+      date: d.date,
+      label: d.label,
+      completed: d.completed,
+    })),
+    dailyActivity,
+    priorityDistribution: {
+      ...priorityDistribution,
+      total: priorityTotal,
+    },
+    servicePerformance,
+  });
+});
