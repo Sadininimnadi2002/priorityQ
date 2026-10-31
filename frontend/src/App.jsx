@@ -24,11 +24,13 @@ import UserManagement from './pages/admin/UserManagement';
 import StaffManagement from './pages/admin/StaffManagement';
 import ServiceManagement from './pages/admin/ServiceManagement';
 import Reports from './pages/admin/Reports';
+import NotificationToast from './components/NotificationToast';
 
 export default function App() {
   return (
     <>
       <AppNavbar />
+      <NotificationToast />
       <main className="pq-main">
         <div className="container">
           <Routes>
