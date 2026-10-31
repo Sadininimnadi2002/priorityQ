@@ -35,7 +35,7 @@ export default function PriorityModal({
     return Array.from(map.values());
   }, [entry, waitingTokens]);
 
-  // Synchronize selectedTokenId when modal opens with a clicked entry or token list changes
+  // Synchronize the form only when an entry explicitly opens the modal
   useEffect(() => {
     if (entry) {
       setSelectedTokenId(entry._id);
@@ -43,16 +43,10 @@ export default function PriorityModal({
       setPriority(defaultNextPriority);
       setReason('');
       setTouched(false);
-    } else if (tokenList.length > 0) {
-      setSelectedTokenId(tokenList[0]._id);
-      const defaultNext = tokenList[0].priority === 'NORMAL' ? 'URGENT' : 'NORMAL';
-      setPriority(defaultNext);
-      setReason('');
-      setTouched(false);
     } else {
       setSelectedTokenId('');
     }
-  }, [entry, tokenList.length]);
+  }, [entry]);
 
   // Currently selected token object
   const selectedToken = useMemo(() => {
@@ -88,7 +82,7 @@ export default function PriorityModal({
 
   return (
     <Modal
-      show={Boolean(entry || selectedTokenId)}
+      show={Boolean(entry)}
       title={selectedToken ? `Change Priority – ${selectedToken.tokenLabel}` : 'Change Priority'}
       onClose={onClose}
       footer={

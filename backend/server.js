@@ -20,7 +20,10 @@ const app = express();
 // CORS: only our React app may call this API from a browser
 app.use(
   cors({
-    origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map((s) => s.trim()),
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:5174',
+    ],
   })
 );
 app.use(express.json()); // lets us read JSON request bodies as req.body
