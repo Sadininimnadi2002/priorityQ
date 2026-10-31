@@ -26,5 +26,6 @@ router.get('/queues', admin.getActiveQueues);
 router.get('/priority-logs', admin.getPriorityLogs);
 router.get('/stats', admin.getStats);
 router.get('/reports', admin.getReports);
+router.get('/analytics', admin.getAnalytics);
 
 module.exports = router;
