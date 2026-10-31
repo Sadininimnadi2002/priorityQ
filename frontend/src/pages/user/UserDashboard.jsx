@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Alert from '../../components/Alert';
 import Loader from '../../components/Loader';
@@ -15,12 +15,15 @@ import {
   SparklesIcon,
 } from '../../components/Icons';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import usePolling from '../../hooks/usePolling';
 import { queueApi, servicesApi } from '../../services/endpoints';
 import { formatDateTime, formatMinutes, getErrorMessage } from '../../utils/format';
+import NotificationBell from '../../components/NotificationBell';
 
 export default function UserDashboard() {
   const { user } = useAuth();
+  const { lastQueueUpdate, connected } = useNotifications();
   const navigate = useNavigate();
 
   const [activeData, setActiveData] = useState(null); // { entry, queueInfo }
@@ -29,8 +32,9 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(true);
   const [joiningId, setJoiningId] = useState(null);
   const [error, setError] = useState('');
+  const [lastUpdatedTime, setLastUpdatedTime] = useState(null);
 
-  // Refresh every 10 seconds to keep live queue position, wait times, and history synchronized
+  // Refresh every 10 seconds to keep live queue position, wait times, and history synchronized as a fallback
   usePolling(async () => {
     try {
       const [activeRes, histRes, svcRes] = await Promise.all([
@@ -41,6 +45,7 @@ export default function UserDashboard() {
       setActiveData(activeRes);
       setHistoryEntries(histRes.entries || []);
       setServices(svcRes.services || []);
+      setLastUpdatedTime(new Date());
       setError('');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -48,6 +53,28 @@ export default function UserDashboard() {
       setLoading(false);
     }
   }, 10000);
+
+  // Real-time queue position tracking via Socket.IO: updates without requiring a manual refresh
+  useEffect(() => {
+    if (!lastQueueUpdate) return;
+    const { entry: incomingEntry, queueInfo: incomingInfo, updatedAt } = lastQueueUpdate;
+
+    if (!incomingEntry || ['COMPLETED', 'SKIPPED', 'CANCELLED'].includes(incomingEntry.status)) {
+      setActiveData(null);
+      setLastUpdatedTime(new Date(updatedAt || Date.now()));
+      // Refresh visit history when an active token is completed or skipped
+      queueApi
+        .history()
+        .then((res) => setHistoryEntries(res.entries || []))
+        .catch(() => {});
+    } else {
+      setActiveData({
+        entry: incomingEntry,
+        queueInfo: incomingInfo,
+      });
+      setLastUpdatedTime(new Date(updatedAt || Date.now()));
+    }
+  }, [lastQueueUpdate]);
 
   const entry = activeData?.entry;
   const info = activeData?.queueInfo;
@@ -112,7 +139,8 @@ export default function UserDashboard() {
                     join campus service lines with digital tokens, and review your previous visit records.
                   </p>
                 </div>
-                <div className="col-lg-4 text-lg-end">
+                <div className="col-lg-4 text-lg-end d-flex align-items-center justify-content-lg-end gap-3 flex-wrap">
+                  <NotificationBell />
                   <Link
                     to="/services"
                     className="btn btn-primary btn-lg px-4 shadow-sm d-inline-flex align-items-center gap-2"
@@ -196,92 +224,296 @@ export default function UserDashboard() {
             {/* When Customer Has An Active Token */}
             {entry ? (
               <div
-                className={`pq-dashboard-card pq-dashboard-card--${entry.status.toLowerCase()} shadow-sm`}
+                className={`pq-queue-progress-card pq-queue-progress-card--${entry.status.toLowerCase()} shadow-sm`}
                 aria-live="polite"
               >
-                <div className="pq-dashboard-card__topline">
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="pq-dashboard-card__eyebrow">ACTIVE DIGITAL TOKEN</span>
-                    <span className="badge bg-light text-dark border">
-                      Joined {entry.joinedAt ? formatDateTime(entry.joinedAt) : 'Recently'}
+                {/* 1. Header with Live Status & Badges */}
+                <div className="pq-queue-progress-card__header d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <span className="badge bg-purple-subtle text-primary border border-primary-subtle px-2 py-1 fw-bold">
+                      ACTIVE DIGITAL TOKEN
                     </span>
+                    {connected ? (
+                      <span className="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 py-1">
+                        <span className="pq-live-pulse-dot" aria-hidden="true" />
+                        <span>LIVE QUEUE TRACKING</span>
+                      </span>
+                    ) : (
+                      <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle py-1">
+                        POLLING FALLBACK (10s)
+                      </span>
+                    )}
                   </div>
-                  <div className="pq-dashboard-card__badges">
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
                     <StatusBadge status={entry.status} />
                     <QueueStatusBadge status={info?.queueStatus || entry.service?.queueStatus} />
                   </div>
                 </div>
 
-                {entry.status === 'CALLED' && (
-                  <div className="pq-dashboard-card__callout alert alert-warning d-flex align-items-center gap-2 my-3">
-                    <strong className="fs-5">🚨 Calling:</strong>
-                    <span>Token <strong>{entry.tokenLabel}</strong> has been called! Please proceed to the service desk immediately.</span>
-                  </div>
-                )}
+                {/* 2. Status Alert Banners */}
+                <div className="px-4 pt-3">
+                  {entry.status === 'CALLED' && (
+                    <div className="alert alert-warning border border-warning shadow-sm d-flex align-items-center gap-3 mb-0" role="alert">
+                      <div className="fs-3">🚨</div>
+                      <div>
+                        <strong className="fs-6 d-block">Your Token {entry.tokenLabel} Has Been Called!</strong>
+                        <span>Please proceed immediately to the <strong>{entry.service?.name}</strong> counter to be served.</span>
+                      </div>
+                    </div>
+                  )}
 
-                {entry.status === 'SERVING' && (
-                  <div className="pq-dashboard-card__callout alert alert-success d-flex align-items-center gap-2 my-3">
-                    <span>You are currently being served at the counter.</span>
-                  </div>
-                )}
+                  {entry.status === 'SERVING' && (
+                    <div className="alert alert-success border border-success shadow-sm d-flex align-items-center gap-3 mb-0" role="alert">
+                      <div className="fs-3">🎉</div>
+                      <div>
+                        <strong className="fs-6 d-block">Service in Progress</strong>
+                        <span>You are currently being served at the <strong>{entry.service?.name}</strong> desk.</span>
+                      </div>
+                    </div>
+                  )}
 
-                <div className="pq-dashboard-card__identity py-3 text-center">
-                  <div className="pq-dashboard-card__token text-primary">{entry.tokenLabel}</div>
-                  <h3 className="h5 fw-semibold text-secondary mt-1">{entry.service?.name || 'Campus Service'}</h3>
+                  {(info?.queueStatus || entry.service?.queueStatus) === 'PAUSED' && (
+                    <div className="alert alert-warning border border-warning shadow-sm d-flex align-items-center gap-3 mb-0 mt-2" role="alert">
+                      <div className="fs-2">⚠️</div>
+                      <div>
+                        <strong className="fs-6 d-block">Queue Paused</strong>
+                        <span>This service is temporarily unavailable. Your token remains in the queue.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {(info?.queueStatus || entry.service?.queueStatus) === 'CLOSED' && (
+                    <div className="alert alert-secondary border d-flex align-items-center gap-2 mb-0 mt-2" role="alert">
+                      <span>🛑</span>
+                      <span><strong>Queue Closed to New Joiners:</strong> Existing waiting customers will continue being served in priority order.</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Hero Identity */}
+                <div className="pq-queue-progress-card__hero">
+                  <div className="small text-muted text-uppercase tracking-wider fw-bold mb-1">
+                    My Token Number
+                  </div>
+                  <div className="pq-queue-token-number">
+                    {entry.tokenLabel}
+                  </div>
+                  <h3 className="h5 fw-bold text-dark mt-2 mb-1">
+                    {entry.service?.name || 'Campus Service'}
+                  </h3>
                   {info?.boosted && (
-                    <div className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mt-1">
+                    <div className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 mt-1">
                       Promoted for extended waiting time
                     </div>
                   )}
                 </div>
 
-                {/* Queue Metrics: Position, Estimated wait, People ahead */}
-                <dl className="pq-dashboard-metrics">
-                  <div>
-                    <dt className="d-flex align-items-center justify-content-center gap-1">
-                      <UsersIcon size={14} />
-                      <span>Queue Position</span>
-                    </dt>
-                    <dd>{waiting ? info?.position ?? '—' : '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="d-flex align-items-center justify-content-center gap-1">
-                      <UsersIcon size={14} />
-                      <span>People Ahead</span>
-                    </dt>
-                    <dd>{waiting ? info?.peopleAhead ?? '—' : '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="d-flex align-items-center justify-content-center gap-1">
-                      <ClockIcon size={14} />
-                      <span>Estimated Wait</span>
-                    </dt>
-                    <dd>{waiting ? formatMinutes(info?.estimatedWaitMinutes) : '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="d-flex align-items-center justify-content-center gap-1">
-                      <ClockIcon size={14} />
-                      <span>Avg Service Time</span>
-                    </dt>
-                    <dd>
-                      {averageMinutes !== null && averageMinutes !== undefined
-                        ? formatMinutes(averageMinutes)
-                        : '—'}
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className="pq-dashboard-card__footer d-flex flex-wrap align-items-center justify-content-between pt-3 gap-2">
-                  <div className="pq-dashboard-card__details d-flex align-items-center gap-3">
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="text-muted small">Priority:</span>
-                      <PriorityBadge priority={entry.priority} />
+                {/* 4. Visual Progress Stepper & Dynamic Fill Track */}
+                <div className="pq-queue-stepper-wrap">
+                  <div className="pq-queue-stepper">
+                    <div className="pq-queue-step pq-queue-step--done">
+                      <div className="pq-queue-step__dot">✓</div>
+                      <span>Joined</span>
+                    </div>
+                    <div
+                      className={`pq-queue-step ${
+                        entry.status === 'WAITING'
+                          ? 'pq-queue-step--active'
+                          : ['CALLED', 'SERVING'].includes(entry.status)
+                          ? 'pq-queue-step--done'
+                          : ''
+                      }`}
+                    >
+                      <div className="pq-queue-step__dot">
+                        {['CALLED', 'SERVING'].includes(entry.status)
+                          ? '✓'
+                          : waiting
+                          ? (info?.position ?? '2')
+                          : '2'}
+                      </div>
+                      <span>In Queue</span>
+                    </div>
+                    <div
+                      className={`pq-queue-step ${
+                        entry.status === 'CALLED'
+                          ? 'pq-queue-step--active'
+                          : entry.status === 'SERVING'
+                          ? 'pq-queue-step--done'
+                          : ''
+                      }`}
+                    >
+                      <div className="pq-queue-step__dot">
+                        {entry.status === 'SERVING' ? '✓' : '3'}
+                      </div>
+                      <span>Called</span>
+                    </div>
+                    <div
+                      className={`pq-queue-step ${
+                        entry.status === 'SERVING' ? 'pq-queue-step--active' : ''
+                      }`}
+                    >
+                      <div className="pq-queue-step__dot">4</div>
+                      <span>Serving</span>
+                    </div>
+                    <div className="pq-queue-step">
+                      <div className="pq-queue-step__dot">5</div>
+                      <span>Complete</span>
                     </div>
                   </div>
-                  <Link to="/token" className="btn btn-primary d-inline-flex align-items-center gap-2">
-                    <TicketIcon size={18} />
-                    <span>View My Token Ticket</span>
-                  </Link>
+
+                  <div className="pq-progress-track">
+                    <div
+                      className="pq-progress-fill"
+                      style={{
+                        width: `${
+                          entry.status === 'COMPLETED'
+                            ? 100
+                            : entry.status === 'SERVING'
+                            ? 90
+                            : entry.status === 'CALLED'
+                            ? 75
+                            : waiting
+                            ? info?.peopleAhead === 0
+                              ? 60
+                              : Math.max(
+                                  20,
+                                  Math.min(
+                                    60,
+                                    Math.round(
+                                      (((info?.totalWaiting || 1) - (info?.position || 1) + 1) /
+                                        Math.max(1, info?.totalWaiting || 1)) *
+                                        55
+                                    )
+                                  )
+                                )
+                            : 15
+                        }%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Four Key Queue Position Metrics */}
+                <div className="pq-queue-metrics-grid">
+                  {/* Metric 1: Queue Position */}
+                  <div className="pq-queue-metric-item">
+                    <span className="pq-queue-metric-item__label">
+                      <UsersIcon size={14} />
+                      <span>Queue Position</span>
+                    </span>
+                    <span className="pq-queue-metric-item__value">
+                      {waiting
+                        ? (info?.position ?? '—')
+                        : entry.status === 'CALLED'
+                        ? 'Called'
+                        : entry.status === 'SERVING'
+                        ? 'At Desk'
+                        : '—'}
+                    </span>
+                    <span className="pq-queue-metric-item__sub">
+                      {waiting ? 'Estimated call position' : 'Currently at counter'}
+                    </span>
+                  </div>
+
+                  {/* Metric 2: People Ahead */}
+                  <div className="pq-queue-metric-item">
+                    <span className="pq-queue-metric-item__label">
+                      <UsersIcon size={14} />
+                      <span>People Ahead</span>
+                    </span>
+                    <span className="pq-queue-metric-item__value">
+                      {waiting ? (info?.peopleAhead ?? 0) : 0}
+                    </span>
+                    <span className="pq-queue-metric-item__sub">
+                      {waiting
+                        ? info?.peopleAhead === 0
+                          ? 'You are next in line!'
+                          : `${info?.peopleAhead} person${info?.peopleAhead === 1 ? '' : 's'} ahead`
+                        : 'Counter ready'}
+                    </span>
+                  </div>
+
+                  {/* Metric 3: Estimated Waiting Time */}
+                  <div className="pq-queue-metric-item">
+                    <span className="pq-queue-metric-item__label">
+                      <ClockIcon size={14} />
+                      <span>Estimated Wait</span>
+                    </span>
+                    <span
+                      className={`pq-queue-metric-item__value ${
+                        (info?.queueStatus || entry.service?.queueStatus) === 'PAUSED'
+                          ? 'fs-6 text-warning-emphasis'
+                          : 'text-primary'
+                      }`}
+                    >
+                      {(info?.queueStatus || entry.service?.queueStatus) === 'PAUSED'
+                        ? 'Temporarily Unavailable'
+                        : entry.status === 'CALLED'
+                        ? 'Immediate'
+                        : entry.status === 'SERVING'
+                        ? 'Now Serving'
+                        : waiting && info?.peopleAhead === 0
+                        ? '< 1 min'
+                        : waiting
+                        ? formatMinutes(info?.estimatedWaitMinutes)
+                        : '—'}
+                    </span>
+                    <span className="pq-queue-metric-item__sub">
+                      {(info?.queueStatus || entry.service?.queueStatus) === 'PAUSED'
+                        ? 'Service queue paused'
+                        : averageMinutes
+                        ? `~${formatMinutes(averageMinutes)} avg/person`
+                        : 'Priority optimized'}
+                    </span>
+                  </div>
+
+                  {/* Metric 4: Current Token Status */}
+                  <div className="pq-queue-metric-item">
+                    <span className="pq-queue-metric-item__label">
+                      <TicketIcon size={14} />
+                      <span>Token Status</span>
+                    </span>
+                    <span className="pq-queue-metric-item__value text-dark fs-4">
+                      {entry.status}
+                    </span>
+                    <span className="pq-queue-metric-item__sub">
+                      Queue: {info?.queueStatus || entry.service?.queueStatus || 'OPEN'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 6. Card Footer with Metadata & Actions */}
+                <div className="pq-queue-progress-card__footer d-flex flex-wrap align-items-center justify-content-between gap-3">
+                  <div className="d-flex align-items-center gap-3 flex-wrap small text-muted">
+                    <div>
+                      <span className="fw-semibold text-secondary me-1">Priority:</span>
+                      <PriorityBadge priority={entry.priority} />
+                    </div>
+                    {entry.joinedAt && (
+                      <div>
+                        <span className="fw-semibold text-secondary me-1">Joined:</span>
+                        <span>{formatDateTime(entry.joinedAt)}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="fw-semibold text-secondary me-1">Last Updated:</span>
+                      <span className="text-dark fw-medium">
+                        {lastUpdatedTime
+                          ? lastUpdatedTime.toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            })
+                          : 'Just now'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <Link to="/token" className="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm">
+                      <TicketIcon size={16} />
+                      <span>View My Token Ticket</span>
+                    </Link>
+                  </div>
                 </div>
               </div>
             ) : (
