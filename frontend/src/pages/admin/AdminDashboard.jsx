@@ -8,6 +8,7 @@ import usePolling from '../../hooks/usePolling';
 import { adminApi } from '../../services/endpoints';
 import { formatDateTime, formatMinutes, getErrorMessage } from '../../utils/format';
 import { Link } from 'react-router-dom';
+import AdminAnalytics from '../../components/AdminAnalytics';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -55,6 +56,9 @@ export default function AdminDashboard() {
           />
         </section>
       )}
+
+      {/* FEATURE 4: Admin Analytics Dashboard */}
+      <AdminAnalytics />
 
       <section className="pq-admin-queues" aria-labelledby="pq-admin-queues-title">
         <div className="pq-admin-section-head">
